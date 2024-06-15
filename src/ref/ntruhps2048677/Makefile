@@ -16,7 +16,7 @@ test: $(HEADERs) $(SOURCEs) test.c
 	$(CC) $(CFLAGS) -o test test.c $(SOURCEs)
 
 speed: $(HEADERs) $(SOURCEs) speed.c
-	$(CC) $(CFLAGS) -o speed speed.c $(SOURCEs)
+	$(CC) $(CFLAGS) -o speed speed.c $(SOURCEs) 
 
 
 include ../common/make.mk
