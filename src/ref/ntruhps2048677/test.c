@@ -78,8 +78,8 @@ int main(void){
 
         schoolbook(&ref, &src1, &src2);
         // poly_Rq_mul_small(&res, &src1, &src2);
-        poly_NTT(&res, &src1, &src2);
-        // poly_Rq_mul(&res, &src1, &src2);
+        // poly_NTT(&res, &src1, &src2);
+        poly_neon(&res, &src1, &src2);
         
 
         // printf("[*] result of schoolbook: \n");

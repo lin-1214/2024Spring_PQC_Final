@@ -174,6 +174,15 @@ static void toom4_k2x2_basemul(uint16_t r[18 * K], const uint16_t a[9 * K], cons
     schoolbook_KxK(r + 6 * 2 * K, a + 6 * K, b + 6 * K);
     schoolbook_KxK(r + 7 * 2 * K, a + 7 * K, b + 7 * K);
     schoolbook_KxK(r + 8 * 2 * K, a + 8 * K, b + 8 * K);
+    // karatsuba_KxK(r + 0 * 2 * K, a + 0 * K, b + 0 * K);
+    // karatsuba_KxK(r + 1 * 2 * K, a + 1 * K, b + 1 * K);
+    // karatsuba_KxK(r + 2 * 2 * K, a + 2 * K, b + 2 * K);
+    // karatsuba_KxK(r + 3 * 2 * K, a + 3 * K, b + 3 * K);
+    // karatsuba_KxK(r + 4 * 2 * K, a + 4 * K, b + 4 * K);
+    // karatsuba_KxK(r + 5 * 2 * K, a + 5 * K, b + 5 * K);
+    // karatsuba_KxK(r + 6 * 2 * K, a + 6 * K, b + 6 * K);
+    // karatsuba_KxK(r + 7 * 2 * K, a + 7 * K, b + 7 * K);
+    // karatsuba_KxK(r + 8 * 2 * K, a + 8 * K, b + 8 * K);
 }
 
 static inline void schoolbook_KxK(uint16_t r[2 * K], const uint16_t a[K], const uint16_t b[K]) {
@@ -189,6 +198,63 @@ static inline void schoolbook_KxK(uint16_t r[2 * K], const uint16_t a[K], const 
     }
     r[2 * K - 1] = 0;
 }
+
+// static void add(uint16_t* r, const uint16_t* a, const uint16_t* b, size_t n) {
+//     for (size_t i = 0; i < n; ++i) {
+//         r[i] = a[i] + b[i];
+//     }
+// }
+
+// static void sub(uint16_t* r, const uint16_t* a, const uint16_t* b, size_t n) {
+//     for (size_t i = 0; i < n; ++i) {
+//         r[i] = a[i] - b[i];
+//     }
+// }
+
+// void karatsuba(uint16_t* r, const uint16_t* a, const uint16_t* b, size_t n) {
+//     if (n == 1) {
+//         r[0] = a[0] * b[0];
+//         return;
+//     }
+
+//     size_t m = n / 2;
+//     const uint16_t *a0 = a;
+//     const uint16_t *a1 = a + m;
+//     const uint16_t *b0 = b;
+//     const uint16_t *b1 = b + m;
+
+//     uint16_t z0[2 * m], z1[2 * m], z2[2 * m];
+//     uint16_t temp_a[m], temp_b[m];
+
+//     memset(z0, 0, 2 * m * sizeof(uint16_t));
+//     memset(z1, 0, 2 * m * sizeof(uint16_t));
+//     memset(z2, 0, 2 * m * sizeof(uint16_t));
+//     memset(temp_a, 0, m * sizeof(uint16_t));
+//     memset(temp_b, 0, m * sizeof(uint16_t));
+
+//     karatsuba(z0, a0, b0, m);
+//     karatsuba(z2, a1, b1, m);
+
+//     add(temp_a, a0, a1, m);
+//     add(temp_b, b0, b1, m);
+
+//     karatsuba(z1, temp_a, temp_b, m);
+
+//     sub(z1, z1, z0, 2 * m);
+//     sub(z1, z1, z2, 2 * m);
+
+//     memset(r, 0, 2 * n * sizeof(uint16_t));
+
+//     for (size_t i = 0; i < 2 * m; ++i) {
+//         r[i] += z0[i];
+//         r[i + m] += z1[i];
+//         r[i + 2 * m] += z2[i];
+//     }
+// }
+
+// inline void karatsuba_KxK(uint16_t r[2 * K], const uint16_t a[K], const uint16_t b[K]) {
+//     karatsuba(r, a, b, K);
+// }
 
 static void toom4_k2x2_interpolate(uint16_t r[2 * L], const uint16_t a[7 * 18 * K]) {
     size_t i;

@@ -16,6 +16,6 @@ typedef struct {
 } poly;
 
 
-void poly_Rq_mul(poly *r, poly *a, poly *b);
+void poly_neon(poly *r, poly *a, poly *b);
 
 #endif

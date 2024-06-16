@@ -777,7 +777,7 @@ void poly_mul_neon(uint16_t *restrict polyC, uint16_t *restrict polyA, uint16_t 
 
 
 // void neon_poly_Rq_mul(poly *r, const poly *a, const poly *b)
-void poly_Rq_mul(poly *r, poly *a, poly *b)
+void poly_neon(poly *r, poly *a, poly *b)
 {
     // Must zero garbage data at the end
 
