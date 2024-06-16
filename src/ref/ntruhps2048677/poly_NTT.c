@@ -1,11 +1,15 @@
 #include "poly_NTT.h"
 #include "params.h"
+#include "hal.h"
+// #include <arm.neon.h>
 
 #define Q_mask 0x03FF
 #define sz 1536
-#define newQ 1419778561
+#define NEWQ 1419778561
 #define newZ 4360860
-#define mod_newQ 422821617
+#define MOD_NEWQ 422821617
+
+#define INV_2 709889281
 // #define DEBUG
 #define uint16_t uint64_t
 
@@ -22,17 +26,12 @@ uint128_t multiply_uint64(uint64_t a, uint64_t b) {
     return result;
 }
 
-uint16_t mod_inverse(int a, int m){
-    for (int x = 1; x < m; x++)
-        if (((a % m) * (x % m)) % m == 1)
-            return x;
-}
 
 
-void good_thomas_permutation(uint16_t **r1, uint16_t **r2, const poly *a, const poly *b) {
+static void good_thomas_permutation(uint16_t **r1, uint16_t **r2, const poly *a, const poly *b) {
     // printf("[+] Good Thomas permutation start.\n");
-    uint16_t pad_a[sz]={0};
-    uint16_t pad_b[sz]={0};
+    uint16_t pad_a[sz];
+    uint16_t pad_b[sz];
     for (size_t i = 0; i < NTRU_N; i++) {
         pad_a[i] = a->coeffs[i];
         pad_b[i] = b->coeffs[i];
@@ -41,199 +40,137 @@ void good_thomas_permutation(uint16_t **r1, uint16_t **r2, const poly *a, const 
         pad_a[i] = 0;
         pad_b[i] = 0;
     }
-    uint16_t idx = 0;
+
     for (size_t i = 0; i < 3; i++) {
         for (size_t j = 0; j < 512; j++) {
-            idx = (i * 512 + j * 3) % sz;     
+            size_t idx = (i * 512 + j * 3) % sz;     
             r1[i][j] = pad_a[idx];
             r2[i][j] = pad_b[idx];
         }
     }
 }
 
-void inv_good_thomas_permutation(uint16_t *r, uint16_t **c) {
-    
-    uint16_t idx = 0;
-    for (size_t i = 0; i < 512; i++) {
-        r[idx] = c[0][i];
-        idx = (idx + 3) % sz;
-    }
-
-    idx = 512;
-    for (size_t i = 0; i < 512; i++) {
-        r[idx] = c[1][i];
-        idx = (idx + 3) % sz;
-    }
-
-    idx = 1024;
-    for (size_t i = 0; i < 512; i++) {
-        r[idx] = c[2][i];
-        idx = (idx + 3) % sz;
+static void inv_good_thomas_permutation(uint16_t *r, uint16_t **c) {
+    for (size_t k = 0; k < 3; k++) {
+        uint16_t idx = 512 * k;
+        for (size_t i = 0; i < 512; i++) {
+            r[idx] = c[k][i];
+            idx = (idx + 3) % sz;
+        }
     }
     // for (size_t i = 0; i < sz; i++) {
     //     printf("%lld ", r[i]);
     // }
 }
 
-void ntt_512(uint16_t *p, uint16_t zetas[], uint16_t brv[]) {
-    //  for (size_t i=0; i<512; i++) {
-    //          printf("%lld ", p[i]);
-    //  }
-    //  printf("\n");
-     uint16_t window_sz = 256;
-     while (window_sz >= 1) {
-        uint16_t start = 0;
-        uint16_t brv_idx = 0;
-        while (start < 512) {
-            uint16_t zeta = zetas[brv[brv_idx]];
-            // printf("zeta: %lld\n", zeta);
-            uint16_t i = start;
-            while (i < start + window_sz) {
-                uint128_t res = multiply_uint64(p[i + window_sz], zeta);
-                uint16_t b = res.low % newQ;
-                bool overflow = (res.high != 0);
-                while (overflow) {
-                    uint128_t tmp = multiply_uint64((res.high%newQ), mod_newQ);
-                    if (tmp.high == 0) {
-                        overflow = false;
-                    }
-                    else {
-                        res.high = tmp.high;
-                        b = (b + tmp.low%newQ) % newQ;
-                    }
-                }
-                // printf("b: %lld i: %lld\n", b, i);
-                // if (i == 384) {
-                //     printf("%lld, %lld\n", res.high, res.low);
-                //     printf("%lld, %lld\n", p[i+window_sz], zeta);
-                //     printf("%lld\n", b);
-                //     printf("%lld\n", i+window_sz);
-                // }
+static void ntt_512(uint16_t *p, uint16_t *zetas, uint16_t *brv) {
+    size_t window_sz = 256;
 
-                // if (i+window_sz == 448) {
-                //     printf("%lld, %lld\n", res.high, res.low);
-                //     printf("%lld, %lld\n", p[i+window_sz], zeta);
-                //     printf("%lld\n", b);
-                //     printf("%lld, %lld\n", i, window_sz);
-                // }
-                uint16_t tmp = p[i]%newQ;
-                while (tmp < b%newQ) {
-                    tmp += newQ;
-                }
-                p[i+window_sz] = (tmp - b%newQ) % newQ;
+    for (; window_sz >= 1; window_sz >>= 1) {
+        for (size_t start = 0, brv_idx = 0; start < 512; start += (window_sz << 1)) {
+            uint16_t zeta = zetas[brv[brv_idx++]];
 
-                // if (i>400) exit(0);
-                p[i] = (p[i]%newQ + b%newQ) % newQ;
-                // printf("p[i]: %lld, p[i+window_sz]: %lld\n", p[i], p[i+window_sz]);
-                i += 1;
+            for (size_t i = start; i < start + window_sz; i++) {
+                size_t k = i + window_sz;
+                uint128_t res = multiply_uint64(p[k], zeta);
+                uint16_t b = res.low % NEWQ;
+
+                if (res.high) {
+                    uint128_t tmp = multiply_uint64((res.high % NEWQ), MOD_NEWQ);
+                    b = (b + tmp.low % NEWQ) % NEWQ;
+                }
+
+                uint32_t tmp = p[i] % NEWQ;
+                if (tmp < b) {
+                    tmp += NEWQ;
+                }
+                p[k] = tmp - b;
+                p[i] = (p[i] + b) % NEWQ;
             }
-            start = window_sz + i;
-            brv_idx += 1;
         }
-        window_sz /= 2;     // window_sz = window_sz / 2
-     }
+    }
 }
 
-void intt_512(uint16_t *p, uint16_t *invzetas, uint16_t *brv) {
+static void intt_512(uint64_t *p, const uint64_t *invzetas, const uint64_t *brv) {
     uint16_t window_sz = 1;
-    uint16_t inv_2 = mod_inverse(2, newQ); 
+
     while (window_sz <= 256) {
         uint16_t start = 0;
         uint16_t brv_idx = 0;
+
         while (start < 512) {
             uint16_t zeta = invzetas[brv[brv_idx]];
             uint16_t i = start;
+
             while (i < start + window_sz) {
-                // deal with a
-                 // uint16_t a = (p[i] + p[i+window_sz]) * inv_2;
-                uint16_t tmp = (p[i]%newQ + p[i+window_sz]%newQ)%newQ;
-                uint128_t res = multiply_uint64(tmp, inv_2);
-                uint16_t a = res.low % newQ;
-                bool overflow = (res.high != 0);
-                while (overflow) {
-                    uint128_t tmp = multiply_uint64((res.high%newQ), mod_newQ);
-                    if (tmp.high == 0) {
-                        overflow = false;
-                    }
-                    else {
-                        res.high = tmp.high;
-                        a = (a + tmp.low%newQ) % newQ;
-                    }
+                // Calculate a
+                uint16_t tmp = (p[i] + p[i + window_sz]) % NEWQ;
+                uint128_t res = multiply_uint64(tmp, INV_2);
+                uint16_t a = res.low % NEWQ;
+                uint64_t carry = res.high % NEWQ;
+
+                while (carry) {
+                    res = multiply_uint64(carry, MOD_NEWQ);
+                    carry = res.high % NEWQ;
+                    a = (a + res.low) % NEWQ;
                 }
 
-                // uint16_t b = (p[i] - p[i+window_sz]) * inv_2;
-                tmp = p[i]%newQ;
-                while (tmp < p[i+window_sz]%newQ) {
-                    tmp += newQ;
+                // Calculate b
+                tmp = p[i] + NEWQ - (p[i + window_sz] % NEWQ);
+                tmp %= NEWQ;
+                res = multiply_uint64(tmp, INV_2);
+                uint16_t b = res.low % NEWQ;
+                carry = res.high % NEWQ;
+
+                while (carry) {
+                    res = multiply_uint64(carry, MOD_NEWQ);
+                    carry = res.high % NEWQ;
+                    b = (b + res.low) % NEWQ;
                 }
 
-                tmp = (tmp - p[i+window_sz]%newQ) % newQ;
-                res = multiply_uint64(tmp, inv_2);
-                uint16_t b = res.low % newQ;
-                overflow = (res.high != 0);
-                while (overflow) {
-                    uint128_t tmp = multiply_uint64((res.high%newQ), mod_newQ);
-                    if (tmp.high == 0) {
-                        overflow = false;
-                    }
-                    else {
-                        res.high = tmp.high;
-                        b = (b + tmp.low%newQ) % newQ;
-                    }
-                }
-
-                p[i] = a % newQ;
+                // Update p[i]
+                p[i] = a;
+                // Update p[i + window_sz]
                 res = multiply_uint64(b, zeta);
-                p[i+window_sz] = res.low % newQ;
-                overflow = (res.high != 0);
-                while (overflow) {
-                    uint128_t tmp = multiply_uint64((res.high%newQ), mod_newQ);
-                    if (tmp.high == 0) {
-                        overflow = false;
-                    }
-                    else {
-                        res.high = tmp.high;
-                        p[i+window_sz] = (p[i+window_sz] + tmp.low%newQ) % newQ;
-                    }
+                uint16_t b_zeta = res.low % NEWQ;
+                carry = res.high % NEWQ;
+
+                while (carry) {
+                    res = multiply_uint64(carry, MOD_NEWQ);
+                    carry = res.high % NEWQ;
+                    b_zeta = (b_zeta + res.low) % NEWQ;
                 }
-                i += 1;
+                p[i + window_sz] = b_zeta;
+                i++;
             }
-            start = window_sz + i;
-            brv_idx += 1;
+
+            start += (window_sz << 1);
+            brv_idx++;
         }
-        window_sz = window_sz << 1;      // window_sz = window_sz * 2
+        window_sz <<= 1;
     }
 }
 
-void conv(uint16_t *r, uint16_t *a, uint16_t *b) {
+static void conv(uint16_t *r, uint16_t *a, uint16_t *b) {
     for (size_t i = 0; i < 3; i++) {
         for (size_t j = 0; j < 3; j++) {
-            uint16_t idx = 0;
-            idx = (i + j) % 3;
-
+            uint16_t idx = (i + j) % 3;
             uint128_t res = multiply_uint64(a[i], b[j]);
-            r[idx] += res.low % newQ;
-            bool overflow = (res.high != 0);
-            while (overflow) {
-                uint128_t tmp = multiply_uint64((res.high%newQ), mod_newQ);
-                if (tmp.high == 0) {
-                    overflow = false;
-                }
-                else {
-                    res.high = tmp.high;
-                    r[idx] = (r[idx] + tmp.low%newQ) % newQ;
-                }
-            }
 
-            // r[idx] += (a[i] * b[j]) % newQ;
-            if (r[idx] >= newQ) {
-                r[idx] %= newQ;
+            // Add low part modulo NEWQ to r[idx]
+            r[idx] += res.low % NEWQ;
+
+            // Handle overflow from high part
+            uint64_t overflow = res.high;
+            while (overflow) {
+                uint128_t tmp = multiply_uint64(overflow % NEWQ, MOD_NEWQ);
+                overflow = tmp.high;
+                r[idx] = (r[idx] + tmp.low % NEWQ) % NEWQ;
             }
         }
     }
 }
-
-void final_stage(poly *r, uint16_t *p) {
+static void final_stage(poly *r, uint16_t *p) {
     for (size_t i = 0; i < NTRU_N; i++) {
         r->coeffs[i] = 0;
     }
@@ -317,24 +254,26 @@ void poly_NTT(poly *r, const poly *a, const poly *b) {
         reorder_b[i] = (uint16_t *)malloc(512 * sizeof(uint16_t));
         ntt_conv_result[i] = (uint16_t *)malloc(512 * sizeof(uint16_t));
     }
-
+    uint16_t t0, t1;
     uint16_t *tem1 = (uint16_t *)malloc(3 * sizeof(uint16_t));
     uint16_t *tem2 = (uint16_t *)malloc(3 * sizeof(uint16_t));
     uint16_t *conv_result = (uint16_t *)malloc(3 * sizeof(uint16_t));
     uint16_t *ntt_order = (uint16_t *)malloc(sz * sizeof(uint16_t));
 
-    // printf("[+] Initialization done.\n");
-
+    t0 = hal_get_time();
     good_thomas_permutation(reorder_a, reorder_b, a, b);
-    // printf("[+] Good Thomas permutation success.\n");
+    t1 = hal_get_time();
+    printf("gt: %lld\n", t1-t0);
 
+    t0 = hal_get_time();
     for (size_t i = 0; i < 3; i++) {
         ntt_512(reorder_a[i], zetas, brv);
         ntt_512(reorder_b[i], zetas, brv);
     }
+    t1 = hal_get_time();
+    printf("ntt: %lld\n", t1-t0);
 
-    // printf("[+] NTT512 success.\n");
-
+    t0 = hal_get_time();
     for (size_t i = 0; i < 512; i++) {
         for (size_t j = 0; j < 3; j++) {
             tem1[j] = reorder_a[j][i];
@@ -346,25 +285,21 @@ void poly_NTT(poly *r, const poly *a, const poly *b) {
             ntt_conv_result[j][i] = conv_result[j];
         }
     }
+    t1 = hal_get_time();
+    printf("convolution: %lld\n", t1-t0);
 
-    // free memory
-    free(tem1);
-    free(tem2);
-    free(*reorder_a);
-    free(*reorder_b);
-    free(reorder_a);
-    free(reorder_b);
-    free(conv_result);
-
-    // printf("[+] Convolution success.\n");
-
+    t0 = hal_get_time();
     for (size_t i = 0; i < 3; i++) {
         intt_512(ntt_conv_result[i], invzetas, brv);
     }
+    t1 = hal_get_time();
+    printf("intt: %lld\n", t1-t0);
 
-    // printf("[+] INTT512 success.\n");
-
+    t0 = hal_get_time();
     inv_good_thomas_permutation(ntt_order, ntt_conv_result);
+    t1 = hal_get_time();
+    printf("inv_good_thomas_permutation: %lld\n", t1-t0);
+
     # ifdef DEBUG
     for (size_t i = 0; i<sz; i++) {
         printf("%lld ", ntt_order[i]);
@@ -372,11 +307,5 @@ void poly_NTT(poly *r, const poly *a, const poly *b) {
     printf("\n");
     # endif
 
-    free(*ntt_conv_result);
-    free(ntt_conv_result);
-    // printf("[+] Inverse Good Thomas permutation success.\n");
-
     final_stage(r, ntt_order);
-    // printf("[+] Final stage success.\n");  
-    free(ntt_order);
 }

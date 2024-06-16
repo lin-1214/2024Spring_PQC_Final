@@ -7,11 +7,12 @@
 #include <arm_neon.h>
 
 #include "params.h"
-// #include "poly.h"
+#include "poly.h"
 #include "poly_NTT.h"
+#include "neon_poly_mul.h"
 #include "hal.h"
 
-#define ITERATIONS 10
+#define ITERATIONS 100000
 
 uint64_t t0, t1;
 uint64_t times[ITERATIONS];
@@ -32,6 +33,7 @@ int main(void){
         t0 = hal_get_time();
         // poly_Rq_mul_small(&a, &b, &c);
         poly_NTT(&a, &b, &c);
+        // poly_Rq_mul(&a, &b, &c);
         t1 = hal_get_time();
         times[i] = t1 - t0;
     }

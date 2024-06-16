@@ -10,6 +10,7 @@
 #include "params.h"
 #include "poly.h"
 #include "poly_NTT.h"
+#include "neon_poly_mul.h"
 #include "hal.h"
 
 #define ITERATIONS 10000
@@ -51,7 +52,7 @@ int main(void){
     poly res;
 
     for(size_t i = 0; i < ITERATIONS; i++){
-        printf("ITERATION %d\n", i);
+        // printf("ITERATION %d\n", i);
         for(size_t j = 0; j < NTRU_N; j++){
             src1.coeffs[j] = rand() % NTRU_Q;
             src2.coeffs[j] = rand() % 3;
@@ -78,6 +79,8 @@ int main(void){
         schoolbook(&ref, &src1, &src2);
         // poly_Rq_mul_small(&res, &src1, &src2);
         poly_NTT(&res, &src1, &src2);
+        // poly_Rq_mul(&res, &src1, &src2);
+        
 
         // printf("[*] result of schoolbook: \n");
         for(size_t j = 0; j < NTRU_N; j++){
@@ -94,7 +97,7 @@ int main(void){
 
     }
     // printf("poly_Rq_mul_small passed!\n");
-    printf("poly_NTT passed!\n");
+    printf("Passed!\n");
 
 }
 

@@ -2,7 +2,7 @@
 include make_opt.mk
 
 COMMON_HEADERs = hal.h params.h
-COMMON_SOURCEs = hal-cortexa.c
+COMMON_SOURCEs = hal-cortexa.c 
 
 OPT_HEADERs = $(C_HEADERs) $(ASM_HEADERs)
 OPT_SOURCEs = $(C_SOURCEs) $(ASM_SOURCEs)
