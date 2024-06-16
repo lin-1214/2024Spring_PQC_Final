@@ -11,7 +11,7 @@
 #include "poly_NTT.h"
 #include "hal.h"
 
-#define ITERATIONS 100000
+#define ITERATIONS 10
 
 uint64_t t0, t1;
 uint64_t times[ITERATIONS];

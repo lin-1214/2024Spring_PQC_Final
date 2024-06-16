@@ -12,7 +12,7 @@
 #include "poly_NTT.h"
 #include "hal.h"
 
-#define ITERATIONS 100
+#define ITERATIONS 10000
 // #define ITERATIONS 1
 
 
@@ -76,8 +76,8 @@ int main(void){
         // printf("\n");
 
         schoolbook(&ref, &src1, &src2);
-        poly_Rq_mul_small(&res, &src1, &src2);
-        // poly_NTT(&res, &src1, &src2);
+        // poly_Rq_mul_small(&res, &src1, &src2);
+        poly_NTT(&res, &src1, &src2);
 
         // printf("[*] result of schoolbook: \n");
         for(size_t j = 0; j < NTRU_N; j++){
@@ -93,8 +93,8 @@ int main(void){
         // printf("\n");
 
     }
-    printf("poly_Rq_mul_small passed!\n");
-    // printf("poly_NTT passed!\n");
+    // printf("poly_Rq_mul_small passed!\n");
+    printf("poly_NTT passed!\n");
 
 }
 
