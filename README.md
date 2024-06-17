@@ -5,7 +5,7 @@
 2. The files we add are placed under `./src/ref/ntruhps2048677` 
 
 ## Execution
-Follow the below steps to execute the code \
+Follow the below steps to execute the code
 1. Go to the correct directory
 
 ```bash
