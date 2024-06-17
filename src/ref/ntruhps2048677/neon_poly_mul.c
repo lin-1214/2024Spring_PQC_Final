@@ -62,47 +62,45 @@ limitations under the License.
 #error "Unsupported compiler"
 #endif
 
-#define inv3 43691
-#define inv15 61167
+#define inv3 43691  // 3^-1 mod 2^16
+#define inv15 61167     // 15^-1 mod 2^16
 
-// c = a << value
-// left shift
+// 64-bit left shift
 #define vsl(c, a, value)                     \
     c.val[0] = vshlq_n_u16(a.val[0], value); \
     c.val[1] = vshlq_n_u16(a.val[1], value); \
     c.val[2] = vshlq_n_u16(a.val[2], value); \
     c.val[3] = vshlq_n_u16(a.val[3], value);
 
-// c = a >> value
-// right shift
+// 64-bit right shift
 #define vsr(c, a, value)                     \
     c.val[0] = vshrq_n_u16(a.val[0], value); \
     c.val[1] = vshrq_n_u16(a.val[1], value); \
     c.val[2] = vshrq_n_u16(a.val[2], value); \
     c.val[3] = vshrq_n_u16(a.val[3], value);
 
-// c = a + b
+// 64-bit addition
 #define vadd(c, a, b)                         \
     c.val[0] = vaddq_u16(a.val[0], b.val[0]); \
     c.val[1] = vaddq_u16(a.val[1], b.val[1]); \
     c.val[2] = vaddq_u16(a.val[2], b.val[2]); \
     c.val[3] = vaddq_u16(a.val[3], b.val[3]);
 
-// c = a - b
+// 64-bit subtraction
 #define vsub(c, a, b)                         \
     c.val[0] = vsubq_u16(a.val[0], b.val[0]); \
     c.val[1] = vsubq_u16(a.val[1], b.val[1]); \
     c.val[2] = vsubq_u16(a.val[2], b.val[2]); \
     c.val[3] = vsubq_u16(a.val[3], b.val[3]);
 
-// c = a * value
+// 64-bit multiplication
 #define vmuln(c, a, value)                   \
     c.val[0] = vmulq_n_u16(a.val[0], value); \
     c.val[1] = vmulq_n_u16(a.val[1], value); \
     c.val[2] = vmulq_n_u16(a.val[2], value); \
     c.val[3] = vmulq_n_u16(a.val[3], value);
 
-// c = value
+// c = 0
 #define vzero(c, value)            \
     c.val[0] = vmovq_n_u16(value); \
     c.val[1] = vmovq_n_u16(value); \
@@ -132,12 +130,12 @@ limitations under the License.
 // store c <= a
 #define vstore_x2(c, a) vst1q_u16_x2(c, a);
 
-// c = a << value
+// 32-bit left shift
 #define vsl_x2(c, a, value)                  \
     c.val[0] = vshlq_n_u16(a.val[0], value); \
     c.val[1] = vshlq_n_u16(a.val[1], value);
 
-// c = a >> value
+// 32-bit right shift
 #define vsr_x2(c, a, value)                  \
     c.val[0] = vshrq_n_u16(a.val[0], value); \
     c.val[1] = vshrq_n_u16(a.val[1], value);
@@ -196,9 +194,7 @@ limitations under the License.
     c.val[2] = vandq_u16(a.val[2], b);
 
 // Evaluate and Copy, this go to TMP
-static
-void karat_neon_evaluate_combine(uint16_t *restrict w, uint16_t *restrict  poly)
-{
+static void karat_neon_evaluate_combine(uint16_t *restrict w, uint16_t *restrict  poly){
     uint16_t *c0 = &poly[0*SB3_PAD],
              *c1 = &poly[1*SB3_PAD],
              *c2 = &poly[2*SB3_PAD],
@@ -214,8 +210,7 @@ void karat_neon_evaluate_combine(uint16_t *restrict w, uint16_t *restrict  poly)
              *w8_mem = &w[8*SB3_PAD];
 
     uint16x8x2_t r0, r1, r2, r3, tmp1, tmp2, tmp3;
-    for (uint16_t addr = 0; addr < SB3_PAD; addr += 16)
-    {
+    for (uint16_t addr = 0; addr < SB3_PAD; addr += 16){
         vload_x2(r0, &c0[addr]);
         vload_x2(r1, &c1[addr]);
         vload_x2(r2, &c2[addr]);
@@ -244,12 +239,11 @@ void karat_neon_evaluate_combine(uint16_t *restrict w, uint16_t *restrict  poly)
 }
 
 // Combine Karatsuba Interpolation
-static
-void karat_neon_interpolate_combine(uint16_t *restrict poly, uint16_t *restrict w)
-{
+static void karat_neon_interpolate_combine(uint16_t *restrict poly, uint16_t *restrict w){
     uint16x8x2_t r0, r1, r2, r3, r4, r5, r6, r7, // 8x2 = 16
                  r8, sum0, sum1, sum2,   // 4x2 = 8
                  w20, w21, tmp; // 3x2 = 6
+
     uint16_t *w0_mem = &w[0*SB3_RES_PAD],
              *w1_mem = &w[1*SB3_RES_PAD],
              *w2_mem = &w[2*SB3_RES_PAD],
@@ -259,17 +253,17 @@ void karat_neon_interpolate_combine(uint16_t *restrict poly, uint16_t *restrict 
              *w6_mem = &w[6*SB3_RES_PAD],
              *w7_mem = &w[7*SB3_RES_PAD],
              *w8_mem = &w[8*SB3_RES_PAD];
-    for (uint16_t addr = 0; addr < SB3_RES_PAD; addr += 16)
-    {
-        vload_x2(r0, &w0_mem[addr]); // a
-        vload_x2(r1, &w1_mem[addr]); // b
-        vload_x2(r2, &w2_mem[addr]); // c
-        vload_x2(r3, &w3_mem[addr]); // d
-        vload_x2(r4, &w4_mem[addr]); // e
-        vload_x2(r5, &w5_mem[addr]); // f
-        vload_x2(r6, &w6_mem[addr]); // g
-        vload_x2(r7, &w7_mem[addr]); // h
-        vload_x2(r8, &w8_mem[addr]); // i
+
+    for (uint16_t addr = 0; addr < SB3_RES_PAD; addr += 16){
+        vload_x2(r0, &w0_mem[addr]); 
+        vload_x2(r1, &w1_mem[addr]); 
+        vload_x2(r2, &w2_mem[addr]); 
+        vload_x2(r3, &w3_mem[addr]); 
+        vload_x2(r4, &w4_mem[addr]); 
+        vload_x2(r5, &w5_mem[addr]); 
+        vload_x2(r6, &w6_mem[addr]); 
+        vload_x2(r7, &w7_mem[addr]); 
+        vload_x2(r8, &w8_mem[addr]); 
 
         // r0 + r2
         vadd_x2(sum0, r0, r2);
@@ -336,9 +330,7 @@ void karat_neon_interpolate_combine(uint16_t *restrict poly, uint16_t *restrict 
 }
 
 // Ultilize all 32 SIMD registers, Copy
-static
-void tc4_evaluate_neon_SB1(uint16_t *restrict w[7], uint16_t *restrict poly)
-{
+static void tc4_evaluate_neon_SB1(uint16_t *restrict w[7], uint16_t *restrict poly){
     uint16_t *c0 = poly,
              *c1 = &poly[1*SB1],
              *c2 = &poly[2*SB1],
@@ -389,9 +381,7 @@ void tc4_evaluate_neon_SB1(uint16_t *restrict w[7], uint16_t *restrict poly)
     }
 }
 
-static
-void tc4_interpolate_neon_SB1(uint16_t *restrict poly, uint16_t *restrict w[7])
-{
+static void tc4_interpolate_neon_SB1(uint16_t *restrict poly, uint16_t *restrict w[7]){
     uint16x8_t r0, r1, r2, r3, r4, r5, r6, tmp;
     uint16_t *w0_mem = w[0],
              *w1_mem = w[1],
@@ -480,9 +470,7 @@ void tc4_interpolate_neon_SB1(uint16_t *restrict poly, uint16_t *restrict w[7])
 }
 
 // Evaluate and copy
-static
-void tc3_evaluate_neon_SB0(uint16_t *restrict w[5], uint16_t *restrict poly)
-{
+static void tc3_evaluate_neon_SB0(uint16_t *restrict w[5], uint16_t *restrict poly){
     uint16_t *w0_mem = w[0],
              *w1_mem = w[1],
              *w2_mem = w[2],
@@ -521,9 +509,7 @@ void tc3_evaluate_neon_SB0(uint16_t *restrict w[5], uint16_t *restrict poly)
     }
 }
 
-static
-void tc3_interpolate_neon_SB0(uint16_t *restrict poly, uint16_t *w[5])
-{
+static void tc3_interpolate_neon_SB0(uint16_t *restrict poly, uint16_t *w[5]){
     uint16_t *w0_mem = w[0],
              *w1_mem = w[1],
              *w2_mem = w[2],
@@ -534,8 +520,7 @@ void tc3_interpolate_neon_SB0(uint16_t *restrict poly, uint16_t *w[5])
                  v1, v2, v3,  // 3x2 = 6
                  c1, c2, c3, // 3x2 = 6
                  tmp1, tmp2, tmp3; // 3x2 = 6
-    for (uint16_t addr = 0; addr < SB0_RES; addr+= 16)
-    {
+    for (uint16_t addr = 0; addr < SB0_RES; addr+= 16){
         vload_x2(r0, &w0_mem[addr]); // 0
         vload_x2(r1, &w1_mem[addr]); // 1
         vload_x2(r2, &w2_mem[addr]); // -1
@@ -588,9 +573,7 @@ void tc3_interpolate_neon_SB0(uint16_t *restrict poly, uint16_t *w[5])
     }
 }
 
-static
-void neon_toom_cook_422_combine(uint16_t *restrict polyC, uint16_t *restrict polyA, uint16_t *restrict polyB)
-{
+static void neon_toom_cook_422_combine(uint16_t *restrict polyC, uint16_t *restrict polyA, uint16_t *restrict polyB){
     // TC4
     uint16_t *aw[7], *bw[7], *cw[7];
     // TC4-2-2 Combine
@@ -679,14 +662,11 @@ void neon_toom_cook_422_combine(uint16_t *restrict polyC, uint16_t *restrict pol
     tc4_interpolate_neon_SB1(polyC, cw);
 }
 
-static
-void poly_neon_reduction(uint16_t *poly, uint16_t *tmp)
-{
+static void poly_neon_reduction(uint16_t *poly, uint16_t *tmp){
     uint16x8_t mask; 
     uint16x8x3_t res, tmp1, tmp2;
     mask = vdupq_n_u16(MASK);
-    for (uint16_t addr = 0; addr < NTRU_N_32; addr += 24)
-    {
+    for (uint16_t addr = 0; addr < NTRU_N_32; addr += 24){
         vload_x3(tmp2, &tmp[addr]);
         vload_x3(tmp1, &tmp[addr + NTRU_N]);
         vadd_x3(res, tmp1, tmp2);
@@ -695,9 +675,7 @@ void poly_neon_reduction(uint16_t *poly, uint16_t *tmp)
     }
 }
 
-static
-void poly_mul_neon(uint16_t *restrict polyC, uint16_t *restrict polyA, uint16_t *restrict polyB)
-{
+static void poly_mul_neon(uint16_t *restrict polyC, uint16_t *restrict polyA, uint16_t *restrict polyB){
     uint16x8x4_t zero;
     uint16_t *kaw[5], *kbw[5], *kcw[5];
     uint16_t tmp_ab[SB0 * 5 * 2];
@@ -726,8 +704,7 @@ void poly_mul_neon(uint16_t *restrict polyC, uint16_t *restrict polyA, uint16_t 
     kcw[4] = &tmp_c[4 * SB0_RES];
 
     vzero(zero, 0);
-    for (uint16_t addr = 0; addr < SB0_RES * 5; addr += 32)
-    {
+    for (uint16_t addr = 0; addr < SB0_RES * 5; addr += 32){
         vstore(&tmp_c[addr], zero);
     }
 
@@ -773,36 +750,16 @@ void poly_mul_neon(uint16_t *restrict polyC, uint16_t *restrict polyA, uint16_t 
     vst1q_u16(c + 16, a);         \
     vst1q_u16(c + 24, a);
 
-#define polyrq_vstore_x1(c, a) vst1q_u16(c, a);
-
-
-// void neon_poly_Rq_mul(poly *r, const poly *a, const poly *b)
-void poly_neon(poly *r, poly *a, poly *b)
-{
+void poly_neon(poly *r, poly *a, poly *b){
     // Must zero garbage data at the end
 
     uint16x8_t last;
     last = vdupq_n_u16(0);
-
-    // 677, 678, 679
-    a->coeffs[NTRU_N] = 0;
-    a->coeffs[NTRU_N+1] = 0;
-    a->coeffs[NTRU_N+2] = 0;
-    // 677, 678, 679
-    b->coeffs[NTRU_N] = 0;
-    b->coeffs[NTRU_N+1] = 0;
-    b->coeffs[NTRU_N+2] = 0;
-
-    // 680 + 32 = 712
-    polyrq_vstore_const(&a->coeffs[NTRU_N + 3], last);
-    // 712 -> 720
-    polyrq_vstore_x1(&a->coeffs[NTRU_N + 35], last);
     
-    // 680 + 32 = 712
-    polyrq_vstore_const(&b->coeffs[NTRU_N + 3], last);
-    // 712 -> 720
-    polyrq_vstore_x1(&b->coeffs[NTRU_N + 35], last);
-    
+    for (uint16_t i = NTRU_N; i < NTRU_N_PAD; i++){
+        polyrq_vstore_const(&a->coeffs[i], last);
+        polyrq_vstore_const(&b->coeffs[i], last);
+    }
     // Multiplication
     poly_mul_neon(r->coeffs, a->coeffs, b->coeffs);
     
